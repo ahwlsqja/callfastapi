@@ -1,91 +1,51 @@
+import asyncio
+import base64
+import json
 import logging
 import os
+import requests
 
-from llama_cpp import Llama
-from transformers import AutoTokenizer
+from aiohttp import web, ClientSession, ClientWebSocketResponse, WSMsgType
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, Response
+from fastapi.responses import StreamingResponse
+from twilio.twiml.voice_response import VoiceResponse
 
-MODEL_PATH = './app/service/model/bllossom/'
-MODEL_NAME = 'llama-3-Korean-Bllossom-8B-Q4_K_M.gguf'
-MODEL_FULL_PATH = os.path.join(MODEL_PATH, MODEL_NAME)
+SYSTEM_MESSAGE_CONTENT ="""
+You are a bank representative. A customer has called with inquiries related to banking services. 
+Guide the conversation by asking questions related to common banking services, such as account balance inquiries,
+recent transaction history, loan eligibility, and credit card information. Respond briefly to the customer's answers 
+and maintain a natural flow in the conversation. While waiting for the API response, keep prompting the customer with 
+relevant questions and inform them appropriately when information is being checked or processed. Be courteous and 
+provide a trustworthy experience. Always respond in Korean, using simple and clear language. Always answer in Korean
+"""
 
-DEFAULT_PROMPT = '''
-    너는 누군가의 엄마야. 
-    지금 5살 아들과 통화할거고 정확하고 친절하게 답변해야해. 
-    아이가 어떤 상태인지 잘 알 수 있는 질문들을 많이해줘. 
-    짧고 간결하게 얘기해.
-'''
-DEFAULT_INSTRUCTION = '일단 여보세요?로 대화를 시작해'
+async def get_chatgpt_response(call_sid: str, prompt: str, request: Request) -> str:
+    response = await call_chatgpt(prompt, request)
+    request.app.state.convos[call_sid] += f'\n\nYou: {prompt}\n\nAssistant: {response}'
 
-class LlamaChat:
-    def __init__(self) -> None:
-        self.check_if_model_exist()
+    return response
 
-        self.generation_kwargs = {
-            "max_tokens":512,
-            "stop":["<|eot_id|>"],
-            "top_p":0.9,
-            "temperature":0.6,
-            "echo":True, # Echo the prompt in the output
-        }
+conversation = [{'role':'system', 'content': SYSTEM_MESSAGE_CONTENT}]
+async def call_chatgpt(message: str, request: Request) -> str:
+    session = request.app.state.session
+    url = 'https://api.openai.com/v1/chat/completions'
+    key = os.getenv('OPENAI_API_KEY')
+    headers = {'Authorization': f"Bearer {key}"}
 
-        model_id = 'MLP-KTLim/llama-3-Korean-Bllossom-8B-gguf-Q4_K_M'
-        self.tokenizer = AutoTokenizer.from_pretrained(model_id)
-        self.model = Llama(
-            model_path=MODEL_FULL_PATH,
-            n_ctx=512,
-            n_gpu_layers=-1 # Number of model layers to offload to GPU
-        )
+    conversation.append({'role': 'user', 'content': message})
 
-        self.conversations = {}
+    payload = {'model': 'gpt-4-0125-preview', 'messages': conversation}
 
-    def check_if_model_exist(self) -> None:
-        if os.path.exists(MODEL_FULL_PATH):
-            pass
-        else:
-            logging.info(f'No Model file found, downloding {MODEL_NAME}')
-            try:
-                os.system(f"huggingface-cli download MLP-KTLim/llama-3-Korean-Bllossom-8B-gguf-Q4_K_M --local-dir={MODEL_PATH}")
-                logging.info(f'Downloaded {MODEL_NAME} successfully')
-            except Exception as e:
-                logging.error(f'An error has occurred while downloading {MODEL_NAME}\nError: {e}')
+    logging.info('Sending to ChatGPT -> User: %s', message)
 
-    def get_response(self, user_input: str, call_sid: str, is_new: bool = False,
-                     prompt: str = DEFAULT_PROMPT, 
-                     instruction: str = DEFAULT_INSTRUCTION) -> str:
+    async with session.post(url, headers=headers, json=payload) as resp:
+        if resp.status != 200:
+            return ''
+        resp_payload = await resp.json()
+        response = resp_payload['choices'][0]['message']['content'].strip()
 
-        if is_new:
-            if call_sid not in self.conversations:
-                self.conversations[call_sid] = [
-                    {"role": "system", "content": prompt},
-                    {"role": "user", "content": instruction}
-                ]
-            else:
-                logging.warning(f'Call SID {call_sid} already has a conversation but is_new is set to True.')
+    conversation.append({'role': 'assistant', 'content': response})
 
-        self.conversations[call_sid].append({"role": "user", "content": user_input})
+    logging.info('ChatGPT: %s', response)
 
-        prompt = self.tokenizer.apply_chat_template(
-            self.conversations[call_sid], 
-            tokenize=False,
-            add_generation_prompt=True
-        )
-
-        response_msg = self.model(prompt, **self.generation_kwargs)
-        response = response_msg['choices'][0]['text'][len(prompt):]
-
-        self.conversations[call_sid].append({"role": "assistant", "content": response})
-
-        return response
-
-# Test를 위해 직접 실행
-if __name__ == '__main__':
-    llama_chat = LlamaChat()
-
-    first_response = llama_chat.get_response('여보세요?', '1', True)
-    print(first_response)
-
-    second_response = llama_chat.get_response('오늘 기분이 어때?', '2', True)
-    print(second_response)
-
-    third_response = llama_chat.get_response('안녕하세요?', '3', True)
-    print(third_response)
+    return response
