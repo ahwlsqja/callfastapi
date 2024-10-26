@@ -1,12 +1,25 @@
+import atexit
 from llama_cpp import Llama
 from transformers import AutoTokenizer
 
-model_id = 'MLP-KTLim/llama-3-Korean-Bllossom-8B-gguf-Q4_K_M'
-tokenizer = AutoTokenizer.from_pretrained(model_id)
-model = Llama(
-    model_path='model/bllossom/llama-3-Korean-Bllossom-8B-Q4_K_M.gguf',
-    n_ctx=512,
-    n_gpu_layers=-1        # Number of model layers to offload to GPU
+# model_id = 'MLP-KTLim/llama-3-Korean-Bllossom-8B-gguf-Q4_K_M'
+# tokenizer = AutoTokenizer.from_pretrained(model_id)
+# model = Llama(
+#     model_path='./app/service/model/bllossom/llama-3-Korean-Bllossom-8B-Q4_K_M.gguf',
+#     n_ctx=512,
+#     n_gpu_layers=-1        # Number of model layers to offload to GPU
+# )
+
+from transformers import LlamaForCausalLM, LlamaTokenizer
+
+model = LlamaForCausalLM.from_pretrained(
+    "bllossom/llama-3-Korean-Bllossom-8B-Q4_K_M.gguf",
+    use_auth_token="<your_token_here>",
+    device_map="auto"
+)
+tokenizer = LlamaTokenizer.from_pretrained(
+    "bllossom/llama-3-Korean-Bllossom-8B-Q4_K_M.gguf",
+    use_auth_token="<your_token_here>"
 )
 
 PROMPT = \
@@ -37,3 +50,7 @@ generation_kwargs = {
 
 resonse_msg = model(prompt, **generation_kwargs)
 print(f"Response! ::::::: {resonse_msg['choices'][0]['text'][len(prompt):]}")
+
+@atexit.register
+def free_model():
+    model.close()

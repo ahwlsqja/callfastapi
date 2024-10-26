@@ -30,6 +30,12 @@ relevant questions and inform them appropriately when information is being check
 provide a trustworthy experience. Always respond in Korean, using simple and clear language. Always answer in Korean
 """
 
+# Number of milliseconds of silence that mark the end of a user interaction.
+ENDPOINTING_DELAY = 4000
+
+# A sentinel to mark the end of a transcript stream
+END_TRANSCRIPT_MARKER = 'END_TRANSCRIPT_MARKER'
+
 @router.post('/twiml/start', tags=['Twilio'])
 async def start(request: Request) -> Response:
     twilio_response = VoiceResponse()
@@ -96,7 +102,7 @@ async def twiml_continue(request: Request, call_sid: str) -> Response:
         return Response(content="Error: Invalid response queue.", media_type="text/xml")
 
     # Handling the transcript response
-    if next_transcript == 'END_TRANSCRIPT_MARKER':
+    if next_transcript == END_TRANSCRIPT_MARKER:
         twilio_response.say('Thank you for calling. Goodbye!', voice="Polly.Amy", language="en-US")
     else:
         if "Assistant:" in next_transcript:
@@ -243,7 +249,7 @@ async def handle_rtzr_messages(call_sid_queue: asyncio.Queue, rtzr_ws: ClientWeb
 
             elif message.type == WSMsgType.CLOSE:
                 logging.info("Returnzero WebSocket closed.")
-                response_queue.put_nowait('END_TRANSCRIPT_MARKER')
+                response_queue.put_nowait(END_TRANSCRIPT_MARKER)
                 break
 
         except Exception as e:

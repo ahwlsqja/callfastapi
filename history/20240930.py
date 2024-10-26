@@ -111,19 +111,6 @@ async def call_chatgpt(message: str, request: web.Request) -> str:
 
 
 async def get_chatgpt_response(call_sid: str, prompt: str, request: web.Request) -> str:
-    """Get a response from ChatGPT using Deepgram transcript as prompt.
-
-    Parameters
-    ----------
-    prompt : str
-        Prompt to send to ChatGPT. This is the transcript of a caller's interaction.
-    request : aiohttp.web.Request
-        Has an HTTP client used to make a request.
-
-    Returns
-    -------
-    Text of ChatGPT response or a warning message if banned words are found.
-    """
     BANNED_COMMANDS = [
         "chown", "chgrp", "useradd", "userdel", "id", "who", "whoami", "logname",
         "w", "last", "groups", "newgrp", "stty", "setserial", "getty", "mesg",
@@ -194,11 +181,12 @@ async def handle_rtzr_messages(call_sid_queue: asyncio.Queue, rtzr_ws: ClientWeb
 
     while True:
         try:
-            message = await rtzr_ws.receive()  # Receive a message from the WebSocket
+            message = await rtzr_ws.receive()
 
             if message.type == WSMsgType.TEXT:
                 msg = json.loads(message.data)
                 logging.debug(f"Received text message from Returnzero WebSocket: {msg}")
+                
                 if 'final' in msg and msg['final']:
                     transcript = msg['alternatives'][0]['text']
                     if transcript:
@@ -211,14 +199,11 @@ async def handle_rtzr_messages(call_sid_queue: asyncio.Queue, rtzr_ws: ClientWeb
                 response_queue.put_nowait(END_TRANSCRIPT_MARKER)
                 break
 
-            else:
-                # logging.warning(f"Received unsupported message type from Returnzero WebSocket: {message.type}")
-                pass
+            else: pass
 
         except Exception as e:
             logging.error(f"Error while receiving message from Returnzero WebSocket: {str(e)}")
             break
-
 
 async def handle_twilio_messages(
     call_sid_queue: asyncio.Queue,
@@ -277,15 +262,12 @@ async def close_rtzr_stream(audio_queue: asyncio.Queue, rtzr_ws: ClientWebSocket
 
 
 async def convert_text_to_speech(elevenlabs_client, text):
-    """Converts text to speech using ElevenLabs API and saves it to a file."""
     try:
-        voice_id = "pMsXgVXv3BLzUgSXRplE"  # Replace with the actual voice ID you want to use
+        voice_id = "pMsXgVXv3BLzUgSXRplE"
         output_format = "mp3_22050_32"
         
-        # Set up file path to save the generated audio
         audio_file_path = f"/tmp/{voice_id}_{int(time.time())}.mp3"
 
-        # Convert text to speech as a stream (synchronous generator)
         stream = elevenlabs_client.text_to_speech.convert_as_stream(
             voice_id=voice_id,
             text=text,
@@ -293,9 +275,8 @@ async def convert_text_to_speech(elevenlabs_client, text):
             voice_settings=VoiceSettings(stability=0.1, similarity_boost=0.3, style=0.2),
         )
 
-        # Open the file asynchronously for writing
         async with aiofiles.open(audio_file_path, 'wb') as audio_file:
-            for chunk in stream:  # Synchronous iteration over the generator
+            for chunk in stream:
                 await audio_file.write(chunk)
 
         logging.info(f"TTS audio generated and saved to {audio_file_path}")
@@ -419,19 +400,16 @@ async def twiml_continue(request: web.Request) -> web.Response:
 async def start(request: web.Request) -> web.Response:
     twilio_response = VoiceResponse()
     body = await request.post()
-    # print('incoming call body:', body)
+    
     call_sid = body.get('CallSid')
     if call_sid:
         response_queues = request.app['response_queues']
         response_queues[call_sid] = asyncio.Queue()
         host = request.host
         stream_url = f"wss://{host}/twilio/stream"
-        # logging.info('Got websocket URL: %s', stream_url)
 
         twilio_response.start().stream(url=stream_url, track='inbound_track')
         twilio_response.say('Hello?', voice="Polly.Amy", language="en-US")
-        # audio_url = "https://drive.google.com/file/d/11WSde3rG61yvZAgCqbYdaeRzG18ZTh3e/view?usp=sharing"
-        # twilio_response.play(audio_url)
         await continue_call(request, twilio_response)
 
         request.app['convos'][call_sid] = ''
@@ -480,10 +458,34 @@ async def audio_stream_handler(request: web.Request) -> web.WebSocketResponse:
 
     return twilio_ws
 
+@web.middleware
+async def check_request(request, handler):
+    logging.info(f"Middleware triggered for path: {request.path}")
+
+    if request.method == "POST" and request.can_read_body:
+        try:
+            body = await request.post()
+            call_sid = body.get('CallSid')
+            if not call_sid:
+                logging.warning("No CallSid found in the request body.")
+                return web.Response(status=400, text="Invalid request")
+            
+            if request.path == '/twilio/twiml/start':
+                logging.info("Twilio start route was hit!")
+                if call_sid != 'expected_value':
+                    logging.warning(f"Unauthorized CallSid: {call_sid}")
+                    return web.Response(status=403, text="Unauthorized request.")
+                
+        except Exception as e:
+            logging.error(f"Error processing request body: {str(e)}")
+            return web.Response(status=500, text="Error processing request body.")
+
+    response = await handler(request)
+    return response
 
 async def app_factory() -> web.Application:
     """Application factory."""
-    app = web.Application()
+    app = web.Application(middlewares=[check_request])
 
     # Create an aiohttp.ClientSession for our application
     app_client = ClientSession()
