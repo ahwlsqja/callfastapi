@@ -1,12 +1,13 @@
 from aiohttp import ClientSession
 from dotenv import load_dotenv
+import os
+# Directly set environment variables into os.environ
 load_dotenv()
-import logging
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .router import router
+from app.router import router
 from contextlib import asynccontextmanager
 
 @asynccontextmanager
@@ -15,7 +16,7 @@ async def lifespan(app: FastAPI):
     app.state.session = ClientSession()
     app.state.response_queues = {}
     app.state.convos = {}
-    
+
     # Lifespan 관리 코드
     try:
         yield

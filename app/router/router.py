@@ -1,12 +1,9 @@
 import asyncio
-import base64
-import json
 import logging
 import os
-import requests
 
-from aiohttp import web, ClientSession, ClientWebSocketResponse, WSMsgType
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, Response
+from aiohttp import ClientSession
+from fastapi import APIRouter, WebSocket, Request, Response
 from fastapi.responses import StreamingResponse
 from twilio.twiml.voice_response import VoiceResponse
 
@@ -65,10 +62,6 @@ async def audio_stream_handler(websocket: WebSocket):
 
 @router.post("/twilio/twiml/continue/{call_sid}", name="twiml_continue")
 async def twiml_continue(request: Request, call_sid: str) -> Response:
-    logging.info('Continuing with call_sid: %s', call_sid)
-
-    logging.info('Received request with body: %s', await request.body())
-
     response_queue = request.app.state.response_queues.get(call_sid)
 
     if not response_queue:

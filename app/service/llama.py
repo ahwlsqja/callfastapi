@@ -1,14 +1,6 @@
-import asyncio
-import base64
-import json
 import logging
 import os
-import requests
-
-from aiohttp import web, ClientSession, ClientWebSocketResponse, WSMsgType
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, Response
-from fastapi.responses import StreamingResponse
-from twilio.twiml.voice_response import VoiceResponse
+from fastapi import Request
 
 SYSTEM_MESSAGE_CONTENT ="""
 You are a bank representative. A customer has called with inquiries related to banking services. 

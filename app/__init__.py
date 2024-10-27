@@ -7,7 +7,6 @@ from twilio.rest import Client
 # Load Credentials from .env
 load_dotenv()
 
-# Init Twilio
 twilio_account_sid = os.getenv('TWILIO_ACCOUNT_SID')
 twilio_auth_token = os.getenv('TWILIO_AUTH_TOKEN')
 TWILIO_CLIENT = Client(twilio_account_sid, twilio_auth_token)

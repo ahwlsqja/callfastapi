@@ -2,15 +2,11 @@ import asyncio
 import base64
 import json
 import logging
-import os
-import requests
 
-from aiohttp import web, ClientSession, ClientWebSocketResponse, WSMsgType
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, Response
-from fastapi.responses import StreamingResponse
-from twilio.twiml.voice_response import VoiceResponse
+from aiohttp import ClientSession, ClientWebSocketResponse, WSMsgType
+from fastapi import WebSocket, WebSocketDisconnect, Request
 
-from .llama import get_chatgpt_response, call_chatgpt
+from .llama import get_chatgpt_response
 
 async def open_rtzr_ws(session: ClientSession, token: str) -> ClientWebSocketResponse:
     config = {
@@ -34,18 +30,19 @@ async def handle_twilio_messages(call_sid_queue: asyncio.Queue, audio_queue: asy
         try:
             message = await twilio_ws.receive_text()
             data = json.loads(message)
-            
-            match data['event']:
-                case 'start':
-                    assert data['start']['mediaFormat']['encoding'] == 'audio/x-mulaw'
-                    assert data['start']['mediaFormat']['sampleRate'] == 8000
-                    call_sid = data['start']['callSid']
-                    call_sid_queue.put_nowait(call_sid)
-                case 'media':
-                    chunk = base64.b64decode(data['media']['payload'])
-                    audio_queue.put_nowait(chunk)
-                case 'stop':
-                    break
+
+            if data['event'] == 'start':
+                assert data['start']['mediaFormat']['encoding'] == 'audio/x-mulaw'
+                assert data['start']['mediaFormat']['sampleRate'] == 8000
+                call_sid = data['start']['callSid']
+                call_sid_queue.put_nowait(call_sid)
+
+            elif data['event'] == 'media':
+                chunk = base64.b64decode(data['media']['payload'])
+                audio_queue.put_nowait(chunk)
+
+            elif data['event'] == 'stop':
+                break
         except WebSocketDisconnect:
             logging.info("Twilio WebSocket disconnected")
             break
@@ -58,16 +55,13 @@ async def stream_audio_to_rtzr(audio_queue: asyncio.Queue, rtzr_ws: ClientWebSoc
 
     while True:
         chunk = await audio_queue.get()
-        logging.info(f"Received chunk of type {type(chunk)}")
 
         if chunk == "EOS":
-            logging.info("End of Stream detected, sending EOS to Returnzero WebSocket")
             await rtzr_ws.send_str("EOS")
             break
 
         if isinstance(chunk, bytes):
             try:
-                logging.info("Sending audio chunk to WebSocket")
                 await rtzr_ws.send_bytes(chunk)
             except Exception as e:
                 logging.error(f"Error sending audio chunk to Returnzero WebSocket: {str(e)}")
@@ -81,8 +75,6 @@ async def stream_audio_to_rtzr(audio_queue: asyncio.Queue, rtzr_ws: ClientWebSoc
 
 async def handle_rtzr_messages(call_sid_queue: asyncio.Queue, rtzr_ws: ClientWebSocketResponse, request: Request):
     call_sid = await call_sid_queue.get()
-    logging.info('Returnzero receiver using call_sid: %s', call_sid)
-    
     response_queue = request.app.state.response_queues.get(call_sid)
     if not isinstance(response_queue, asyncio.Queue):
         logging.error(f"response_queue for call_sid {call_sid} is not a Queue. Got: {type(response_queue)}")
@@ -94,12 +86,10 @@ async def handle_rtzr_messages(call_sid_queue: asyncio.Queue, rtzr_ws: ClientWeb
 
             if message.type == WSMsgType.TEXT:
                 msg = json.loads(message.data)
-                logging.debug(f"Received text message from Returnzero WebSocket: {msg}")
                 if 'final' in msg and msg['final'] == True:
                     transcript = msg['alternatives'][0]['text']
                     print(transcript)
                     if transcript:
-                        logging.info(f"Final transcript received: {transcript}")
                         response = await get_chatgpt_response(call_sid, transcript, request)
                         print(f'response: {response}')
                         response_queue.put_nowait(response)
