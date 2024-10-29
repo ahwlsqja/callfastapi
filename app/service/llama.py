@@ -44,7 +44,6 @@ async def call_chatgpt(message: str, request: Request) -> str:
 
 
 
-
 # import torch
 # from transformers import (
 #     BitsAndBytesConfig,
@@ -61,4 +60,3 @@ async def call_chatgpt(message: str, request: Request) -> str:
 
 # class LlamaQLoRa:
 #     def __init__(self, model_id: str) -> None:
-        
