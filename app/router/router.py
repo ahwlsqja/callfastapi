@@ -21,18 +21,30 @@ metadata = {
     'description': 'Call Service'
 }
 
-async def continue_call(request: Request, twilio_response: VoiceResponse) -> Response:
+
+@router.post('/twiml/start', tags=['Twilio'])
+async def start(request: Request) -> Response:
+    twilio_response = VoiceResponse()
     body = await request.form()
     call_sid = body.get('CallSid')
 
     if call_sid:
-        redirect_url = request.url_for('twiml_continue', call_sid=call_sid)
-        twilio_response.redirect(url=str(redirect_url), method='POST')
+        # response_queues[call_sid]에 항상 asyncio.Queue()를 할당
+        if call_sid not in request.app.state.response_queues:
+            request.app.state.response_queues[call_sid] = asyncio.Queue()  # 항상 큐로 초기화
+
+        stream_url = f"wss://{request.url.hostname}/twilio/stream"
+        twilio_response.start().stream(url=stream_url, track='inbound_track')
+        twilio_response.say('Hello?', voice="Polly.Amy", language="en-US")
+
+        await continue_call(request, twilio_response)
+
+        request.app.state.convos[call_sid] = ''
+
     else:
-        twilio_response.say('Something went wrong. Please try again later.')
+        twilio_response.say('Something went wrong! Please try again later.')
 
     return Response(content=str(twilio_response), media_type="text/xml")
-
 
 
 @router.websocket("/stream")
@@ -101,12 +113,23 @@ async def twiml_continue(request: Request, call_sid: str) -> Response:
     # Return the final response
     return Response(content=str(twilio_response), media_type="text/xml")
 
+async def continue_call(request: Request, twilio_response: VoiceResponse) -> Response:
+    body = await request.form()
+    call_sid = body.get('CallSid')
+
+    if call_sid:
+        redirect_url = request.url_for('twiml_continue', call_sid=call_sid)
+        twilio_response.redirect(url=str(redirect_url), method='POST')
+    else:
+        twilio_response.say('Something went wrong. Please try again later.')
+
+    return Response(content=str(twilio_response), media_type="text/xml")
+
+
 @router.get('/elevenlabs/stream/{call_sid}')
 async def elevenlabs_stream_handler(call_sid: str, request: Request):
-    """Stream TTS audio from ElevenLabs directly to Twilio."""
     transcript = request.app.state.convos.get(call_sid, '')
 
-    # Get the ElevenLabs API key from the application context
     elevenlabs_api_key = os.getenv('ELEVENLABS_API_KEY')
     voice_id = "pMsXgVXv3BLzUgSXRplE"  # Replace with your desired voice ID
 
@@ -124,28 +147,4 @@ async def elevenlabs_stream_handler(call_sid: str, request: Request):
         }
     }
 
-    return StreamingResponse(tts_stream_generator(voice_id=voice_id), media_type="audio/mpeg")
-
-@router.post('/twiml/start', tags=['Twilio'])
-async def start(request: Request) -> Response:
-    twilio_response = VoiceResponse()
-    body = await request.form()
-    call_sid = body.get('CallSid')
-
-    if call_sid:
-        # response_queues[call_sid]에 항상 asyncio.Queue()를 할당
-        if call_sid not in request.app.state.response_queues:
-            request.app.state.response_queues[call_sid] = asyncio.Queue()  # 항상 큐로 초기화
-
-        stream_url = f"wss://{request.url.hostname}/twilio/stream"
-        twilio_response.start().stream(url=stream_url, track='inbound_track')
-        twilio_response.say('Hello?', voice="Polly.Amy", language="en-US")
-
-        await continue_call(request, twilio_response)
-
-        request.app.state.convos[call_sid] = ''
-
-    else:
-        twilio_response.say('Something went wrong! Please try again later.')
-
-    return Response(content=str(twilio_response), media_type="text/xml")
+    return StreamingResponse(tts_stream_generator(voice_id=voice_id, headers=headers, payload=payload), media_type="audio/mpeg")

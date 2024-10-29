@@ -41,3 +41,24 @@ async def call_chatgpt(message: str, request: Request) -> str:
     logging.info('ChatGPT: %s', response)
 
     return response
+
+
+
+
+# import torch
+# from transformers import (
+#     BitsAndBytesConfig,
+#     AutoModelForCausalLM,
+#     AutoTokenizer,
+#     pipeline
+# )
+# from peft import (
+#     PeftModel,
+#     PeftConfig
+# )
+# import torch
+# from transformers import AutoModelForCausalLM, AutoTokenizer
+
+# class LlamaQLoRa:
+#     def __init__(self, model_id: str) -> None:
+        

@@ -1,8 +1,6 @@
-import logging
 from aiohttp import ClientSession
-async def tts_stream_generator(voice_id: str, request):
-    headers = request.app.state.elevenlabs_headers
-    payload = request.app.state.elevenlabs_voice_settings.copy()
+
+async def tts_stream_generator(voice_id: str, headers: dict, payload: dict):
     async with ClientSession() as session:
         try:
             async with session.post(
