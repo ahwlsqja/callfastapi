@@ -149,51 +149,52 @@ def start_rabbitmq_consumer(connection):
     except Exception as e:
         print(f"Error establishing RabbitMQ connection: {e}")
 
-@app.middleware("http")
-async def authentication(request: Request, call_next):
-    if request.url.path == '/twilio/twiml/start':
-        print("Middleware executed for requested endpoint: '/twilio/twiml/start'")
-        print("Endpoint: @app.middleware('http')")
+# @app.middleware("http")
+# async def authentication(request: Request, call_next):
+#     if request.url.path == '/twilio/twiml/start':
+#         print("Middleware executed for requested endpoint: '/twilio/twiml/start'")
+#         print("Endpoint: @app.middleware('http')")
         
-        # Read and store the request body as bytes
-        # Store the body bytes so it can be reused later in the request
-        body_bytes = await request.body()
-        request._body = body_bytes
-        # Convert the bytes into a form-like object (FormData)
-        form_data = await request.form()
-        caller = form_data.get('Caller') # 모모모진영진영진영 (caller = 전화번호)
-        print(f'Form data: {caller}')
+#         # Read and store the request body as bytes
+#         # Store the body bytes so it can be reused later in the request
+#         body_bytes = await request.body()
+#         request._body = body_bytes
+#         # Convert the bytes into a form-like object (FormData)
+#         form_data = await request.form()
+#         caller = form_data.get('Caller') # 모모모진영진영진영 (caller = 전화번호)
 
-        try:
-            connection = psycopg2.connect(
-                HOST,
-                DATABASE,
-                USER,
-                PASSWORD
-            )
-            cursor = connection.cursor()
+#         print(f'Form data: {caller}')
 
-            authenticated = cursor.execute("SELECT 뭐시기 from table where 전화번호=caller") # 모모모진영진영진영 (Authentication 처리)
-
-            connection.commit()
+#         try:
+#             connection = psycopg2.connect(
+#                 HOST,
+#                 DATABASE,
+#                 USER,
+#                 PASSWORD
+#             )
+#             cursor = connection.cursor()
             
-        except Exception as e:
-            print("Error updating record:", e)
-            connection.rollback()  # 오류 시 롤백
-        finally:
-            cursor.close()
-            connection.close()
+#             authenticated = cursor.execute("SELECT * FROMmodel SET gpt_id = %s WHERE {} = %s".format()) # 모모모진영진영진영 (Authentication 처리)
 
-        if authenticated:
-            # Pass the request to the next process (router or another middleware)
-            response = await call_next(request)
-            return response
-        else:
-            return
+#             connection.commit()
+            
+#         except Exception as e:
+#             print("Error updating record:", e)
+#             connection.rollback()  # 오류 시 롤백
+#         finally:
+#             cursor.close()
+#             connection.close()
+
+#         if authenticated:
+#             # Pass the request to the next process (router or another middleware)
+#             response = await call_next(request)
+#             return response
+#         else:
+#             return
     
-    else:
-        response = await call_next(request)
-        return response
+#     else:
+#         response = await call_next(request)
+#         return response
 
 if __name__ == "__main__":
     import uvicorn

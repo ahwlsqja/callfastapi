@@ -37,11 +37,11 @@ def transcribe(gpt_id: str = None, voice_id: str = None):
         # model_id
         if gpt_id:
             print(f'[INFO] EXECUTE transcribe() - model_id: {gpt_id}')
-            cursor.execute("UPDATE your_table SET gpt_id = %s WHERE {} = %s".format())
+            cursor.execute("UPDATE model SET gpt_id = %s WHERE {} = %s".format())
         # voice_id
         if voice_id:
             print(f'[INFO] EXECUTE transcribe() - voice_id: {voice_id}')
-            cursor.execute("UPDATE your_table SET voice_id = %s WHERE {} = %s".format())
+            cursor.execute("UPDATE model SET voice_id = %s WHERE {} = %s".format())
 
         connection.commit()
 
