@@ -8,3 +8,4 @@ pika
 elevenlabs
 dependency-injector
 psycopg2-binary
+python-multipart
