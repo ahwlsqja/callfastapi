@@ -7,7 +7,9 @@ from aiohttp import ClientSession
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 import pika
+import psycopg2
 
+from . import HOST, DATABASE, USER, PASSWORD
 from app.router.router import router, transcribe
 from app.router.container import RabbitMQContainer
 
@@ -162,7 +164,25 @@ async def authentication(request: Request, call_next):
         caller = form_data.get('Caller') # 모모모진영진영진영 (caller = 전화번호)
         print(f'Form data: {caller}')
 
-        authenticated = True # 모모모진영진영진영 (Authentication 처리)
+        try:
+            connection = psycopg2.connect(
+                HOST,
+                DATABASE,
+                USER,
+                PASSWORD
+            )
+            cursor = connection.cursor()
+
+            authenticated = cursor.execute("SELECT 뭐시기 from table where 전화번호=caller") # 모모모진영진영진영 (Authentication 처리)
+
+            connection.commit()
+            
+        except Exception as e:
+            print("Error updating record:", e)
+            connection.rollback()  # 오류 시 롤백
+        finally:
+            cursor.close()
+            connection.close()
 
         if authenticated:
             # Pass the request to the next process (router or another middleware)

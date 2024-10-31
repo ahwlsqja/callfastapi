@@ -22,6 +22,7 @@ metadata = {
     'description': 'Call Service'
 }
 
+# @router.get('/test/postgres/')
 def transcribe(gpt_id: str = None, voice_id: str = None):
     # PostgreSQL
     connection = psycopg2.connect(
