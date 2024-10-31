@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import requests
 
 from aiohttp import ClientSession
 from fastapi import APIRouter, WebSocket, Request, Response
@@ -130,8 +131,7 @@ async def twiml_continue(request: Request, call_sid: str) -> Response:
             assistant_response = next_transcript.strip()
 
         # Create a streaming URL endpoint for this transcript
-        voice_id = 'pMsXgVXv3BLzUgSXRplE'
-        stream_url = f"{request.url.scheme}://{request.url.netloc}/twilio/elevenlabs/stream/{call_sid}/{voice_id}"
+        stream_url = f"{request.url.scheme}://{request.url.netloc}/twilio/elevenlabs/stream/{call_sid}"
         request.app.state.convos[call_sid] = assistant_response
         twilio_response.play(stream_url)
 
@@ -154,8 +154,8 @@ async def continue_call(request: Request, twilio_response: VoiceResponse) -> Res
     return Response(content=str(twilio_response), media_type="text/xml")
 
 
-@router.get('/elevenlabs/stream/{call_sid}/{voice_id}')
-async def elevenlabs_stream_handler(call_sid: str, voice_id: str, request: Request):
+@router.get('/elevenlabs/stream/{call_sid}')
+async def elevenlabs_stream_handler(call_sid: str, request: Request):
     transcript = request.app.state.convos.get(call_sid, '')
 
     elevenlabs_api_key = os.getenv('ELEVENLABS_API_KEY')
@@ -173,5 +173,8 @@ async def elevenlabs_stream_handler(call_sid: str, voice_id: str, request: Reque
             "style": 0.2,
         }
     }
+
+    # voice_id = 'pMsXgVXv3BLzUgSXRplE' # default 목소리
+    voice_id = 'jBBKMkvmzhhKobBl0J8J'
 
     return StreamingResponse(tts_stream_generator(voice_id=voice_id, headers=headers, payload=payload), media_type="audio/mpeg")

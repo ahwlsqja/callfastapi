@@ -1,14 +1,10 @@
 import logging
 import os
 from fastapi import Request
+from openai import OpenAI
 
 SYSTEM_MESSAGE_CONTENT ="""
-You are a bank representative. A customer has called with inquiries related to banking services. 
-Guide the conversation by asking questions related to common banking services, such as account balance inquiries,
-recent transaction history, loan eligibility, and credit card information. Respond briefly to the customer's answers 
-and maintain a natural flow in the conversation. While waiting for the API response, keep prompting the customer with 
-relevant questions and inform them appropriately when information is being checked or processed. Be courteous and 
-provide a trustworthy experience. Always respond in Korean, using simple and clear language. Always answer in Korean
+You are an assistant tasked with providing engaging and relevant responses based on the given conversation context. Respond thoughtfully and appropriately to user inputs.
 """
 
 async def get_chatgpt_response(call_sid: str, prompt: str, request: Request) -> str:
@@ -22,11 +18,12 @@ async def call_chatgpt(message: str, request: Request) -> str:
     session = request.app.state.session
     url = 'https://api.openai.com/v1/chat/completions'
     key = os.getenv('OPENAI_API_KEY')
+
     headers = {'Authorization': f"Bearer {key}"}
 
     conversation.append({'role': 'user', 'content': message})
 
-    payload = {'model': 'gpt-4-0125-preview', 'messages': conversation}
+    payload = {'model': 'ft:gpt-4o-mini-2024-07-18:personal::AO7dT1L1', 'messages': conversation}
 
     logging.info('Sending to ChatGPT -> User: %s', message)
 
@@ -41,22 +38,3 @@ async def call_chatgpt(message: str, request: Request) -> str:
     logging.info('ChatGPT: %s', response)
 
     return response
-
-
-
-# import torch
-# from transformers import (
-#     BitsAndBytesConfig,
-#     AutoModelForCausalLM,
-#     AutoTokenizer,
-#     pipeline
-# )
-# from peft import (
-#     PeftModel,
-#     PeftConfig
-# )
-# import torch
-# from transformers import AutoModelForCausalLM, AutoTokenizer
-
-# class LlamaQLoRa:
-#     def __init__(self, model_id: str) -> None:
