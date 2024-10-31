@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from twilio.twiml.voice_response import VoiceResponse
 import psycopg2
 
-from .. import RTZR_TOKEN, HOST, DATABASE, USER, PASSWORD
+from .. import RTZR_TOKEN, HOST, DATABASE, USER, PASSWORD, ELEVENLABS_VOICE_ID
 from ..service.tts import tts_stream_generator
 from ..service.stt import open_rtzr_ws, stream_audio_to_rtzr, handle_rtzr_messages, handle_twilio_messages
 
@@ -175,6 +175,6 @@ async def elevenlabs_stream_handler(call_sid: str, request: Request):
     }
 
     # voice_id = 'pMsXgVXv3BLzUgSXRplE' # default 목소리
-    voice_id = 'jBBKMkvmzhhKobBl0J8J'
+    voice_id = ELEVENLABS_VOICE_ID
 
     return StreamingResponse(tts_stream_generator(voice_id=voice_id, headers=headers, payload=payload), media_type="audio/mpeg")

@@ -12,10 +12,11 @@ twilio_auth_token = os.getenv('TWILIO_AUTH_TOKEN')
 TWILIO_CLIENT = Client(twilio_account_sid, twilio_auth_token)
 
 # Init Return-Zero
+rtzr_client_url = os.getenv('RETURNZERO_CLIENT_URL')
 rtzr_client_id = os.getenv('RETURNZERO_CLIENT_ID')
 rtzr_client_secret = os.getenv('RETURNZERO_CLIENT_SECRET')
 resp = requests.post(
-    'https://openapi.vito.ai/v1/authenticate',
+    rtzr_client_url,
     data={'client_id': rtzr_client_id, 'client_secret': rtzr_client_secret}
 )
 RTZR_TOKEN = resp.json()['access_token']
@@ -25,3 +26,5 @@ HOST = os.getenv('HOST')
 DATABASE = os.getenv('DATABASE')
 USER = os.getenv('USER')
 PASSWORD = os.getenv('PASSWORD')
+
+ELEVENLABS_VOICE_ID = os.getenv('ELEVENLABS_VOICE_ID')

@@ -3,6 +3,11 @@ import os
 from fastapi import Request
 from openai import OpenAI
 
+from dotenv import load_dotenv
+load_dotenv()
+
+OPENAI_MODEL_ID = os.getenv('OPENAI_MODEL_ID')
+
 SYSTEM_MESSAGE_CONTENT ="""
 You are an assistant tasked with providing engaging and relevant responses based on the given conversation context. Respond thoughtfully and appropriately to user inputs.
 """
@@ -23,7 +28,7 @@ async def call_chatgpt(message: str, request: Request) -> str:
 
     conversation.append({'role': 'user', 'content': message})
 
-    payload = {'model': 'ft:gpt-4o-mini-2024-07-18:personal::AO7dT1L1', 'messages': conversation}
+    payload = {'model': OPENAI_MODEL_ID, 'messages': conversation}
 
     logging.info('Sending to ChatGPT -> User: %s', message)
 
