@@ -142,6 +142,7 @@ async def twiml_continue(request: Request, call_sid: str) -> Response:
     return Response(content=str(twilio_response), media_type="text/xml")
 
 async def continue_call(request: Request, twilio_response: VoiceResponse) -> Response:
+    print("continue_call1")
     body = await request.form()
     call_sid = body.get('CallSid')
 

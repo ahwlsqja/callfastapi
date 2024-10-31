@@ -9,6 +9,7 @@ from fastapi import WebSocket, WebSocketDisconnect, Request
 from .llama import get_chatgpt_response
 
 async def open_rtzr_ws(session: ClientSession, token: str) -> ClientWebSocketResponse:
+    print("open_rtzr_ws1")
     config = {
         "sample_rate": "8000",
         "encoding": "MULAW",
@@ -17,17 +18,21 @@ async def open_rtzr_ws(session: ClientSession, token: str) -> ClientWebSocketRes
         "use_profanity_filter": "false",
     }
     config_str = "&".join(f"{key}={value}" for key, value in config.items())
-
+    print("open_rtzr_ws2")
     STREAMING_ENDPOINT = f"wss://openapi.vito.ai/v1/transcribe:streaming?{config_str}"
 
     headers = {"Authorization": f"Bearer {token}"}
 
     rtzr_ws = await session.ws_connect(STREAMING_ENDPOINT, headers=headers)
+    print("open_rtzr_ws3")
+
     return rtzr_ws
 
 async def handle_twilio_messages(call_sid_queue: asyncio.Queue, audio_queue: asyncio.Queue, twilio_ws: WebSocket):
     while True:
         try:
+            print("handle_twilio_messages1")
+
             message = await twilio_ws.receive_text()
             data = json.loads(message)
 
@@ -51,6 +56,7 @@ async def handle_twilio_messages(call_sid_queue: asyncio.Queue, audio_queue: asy
             break
 
 async def stream_audio_to_rtzr(audio_queue: asyncio.Queue, rtzr_ws: ClientWebSocketResponse):
+    print("stream_audio_to_rtzr")
     logging.info("Starting to stream audio to Returnzero WebSocket")
 
     while True:
