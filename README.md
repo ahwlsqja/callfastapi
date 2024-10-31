@@ -15,6 +15,13 @@ pip install transformers
 pip install llama-cpp-python
 ```
 
+## docker build
+```
+docker buildx build --platform linux/amd64 -t servingserver .
+docker tag servingserver phoonil/servingserver:latest
+docker push phoonil/servingserver:latest
+```
+
 ## Project Architecture
 ##### 개발언어
 - Python
