@@ -1,17 +1,16 @@
 import asyncio
 from contextlib import asynccontextmanager
 import json
-import logging
 import threading
+
 from aiohttp import ClientSession
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import pika
-from app.router.router import router
+
+from app.router.router import router, transcribe
 from app.router.container import RabbitMQContainer
 
-
-# from .service.data import 
 # 전역 이벤트 루프 변수
 global_event_loop = None
 
@@ -81,7 +80,6 @@ app.add_middleware(
 
 app.include_router(router)
 
-    
 def callback(ch, method, properties, body):
     # 수신한 메시지를 바이트에서 문자열로 디코딩
     decoded_body = body.decode('utf-8')
@@ -96,35 +94,47 @@ def callback(ch, method, properties, body):
 
     # 모델 ID 추출
     model_id = message.get('model_id')
-    if model_id is None:
-        print("Model ID not found in the message.")
-        return
+    voice_id = message.get('voice_id')
 
-    print(f"Model ID: {model_id}")
-
-    # 여기서 모델 ID에 따라 로직 실행 (예: transcribe)
-    # transcribe(model_id)와 같은 비즈니스 로직 추가 가능
-    if model_id:
-        print(f"Preparing to transcribe model ID: {model_id}")  # 추가 로그
+    if model_id is not None:
+        print(f"Model ID: {model_id}")
         loop = get_or_create_event_loop()
         
         try:
             print(f"Calling transcribe for model ID: {model_id}")  # 호출 로그 추가
+            asyncio.run_coroutine_threadsafe(transcribe(model_id, None), loop) # transcribe 호출 (데이터 저장)
             
-
         except Exception as e:
             print(f"Error while running transcribe: {e}")
-    # 응답을 datatolearnqueue로 전송
-    response_message = {"status": "processing", "model_id": model_id}
+
+        # 응답을 datatolearnqueue로 전송
+        response_message = {"status": "processing", "model_id": model_id}
+
+    elif voice_id is not None:
+        print(f"Voice ID: {voice_id}")
+        loop = get_or_create_event_loop()
+        
+        try:
+            print(f"Calling transcribe for voice ID: {voice_id}")  # 호출 로그 추가
+            asyncio.run_coroutine_threadsafe(transcribe(None, voice_id), loop) # transcribe 호출 (데이터 저장)
+            
+        except Exception as e:
+            print(f"Error while running transcribe: {e}")
+
+        # 응답을 datatolearnqueue로 전송
+        response_message = {"status": "processing", "voice_id": voice_id}
+
+    else:
+        print("Neither Model ID nor Voice ID found in the message.")
 
     app.state.rabbit_channel.basic_publish(
         exchange='',
         routing_key='datatolearnqueue',
         body=json.dumps(response_message),
     )
+    
     print(f"Response sent to datatolearnqueue: {response_message}")
 
-            
 def start_rabbitmq_consumer(connection):
     print("Starting RabbitMQ consumer...")
     try:
@@ -140,4 +150,3 @@ def start_rabbitmq_consumer(connection):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8005)
-

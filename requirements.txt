@@ -1,0 +1,10 @@
+fastapi
+"uvicorn[standard]"
+aiohttp
+python-dotenv
+twilio
+openai
+pika
+elevenlabs
+dependency-injector
+psycopg2-binary

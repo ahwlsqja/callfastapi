@@ -18,5 +18,10 @@ resp = requests.post(
     'https://openapi.vito.ai/v1/authenticate',
     data={'client_id': rtzr_client_id, 'client_secret': rtzr_client_secret}
 )
-
 RTZR_TOKEN = resp.json()['access_token']
+
+# PostgreSQL
+HOST = os.getenv('HOST')
+DATABASE = os.getenv('DATABASE')
+USER = os.getenv('USER')
+PASSWORD = os.getenv('PASSWORD')

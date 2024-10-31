@@ -6,8 +6,9 @@ from aiohttp import ClientSession
 from fastapi import APIRouter, WebSocket, Request, Response
 from fastapi.responses import StreamingResponse
 from twilio.twiml.voice_response import VoiceResponse
+import psycopg2
 
-from .. import RTZR_TOKEN
+from .. import RTZR_TOKEN, HOST, DATABASE, USER, PASSWORD
 from ..service.tts import tts_stream_generator
 from ..service.stt import open_rtzr_ws, stream_audio_to_rtzr, handle_rtzr_messages, handle_twilio_messages
 
@@ -20,6 +21,35 @@ metadata = {
     'name': 'Twilio',
     'description': 'Call Service'
 }
+
+def transcribe(gpt_id: str = None, voice_id: str = None):
+    # PostgreSQL
+    connection = psycopg2.connect(
+        HOST,
+        DATABASE,
+        USER,
+        PASSWORD
+    )
+    cursor = connection.cursor()
+
+    try:
+        # model_id
+        if gpt_id:
+            print(f'[INFO] EXECUTE transcribe() - model_id: {gpt_id}')
+            cursor.execute("UPDATE your_table SET gpt_id = %s WHERE {} = %s".format())
+        # voice_id
+        if voice_id:
+            print(f'[INFO] EXECUTE transcribe() - voice_id: {voice_id}')
+            cursor.execute("UPDATE your_table SET voice_id = %s WHERE {} = %s".format())
+
+        connection.commit()
+
+    except Exception as e:
+        print("Error updating record:", e)
+        connection.rollback()  # 오류 시 롤백
+    finally:
+        cursor.close()
+        connection.close()
 
 @router.post('/twiml/start', tags=['Twilio'])
 async def start(request: Request) -> Response:
