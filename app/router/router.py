@@ -21,7 +21,6 @@ metadata = {
     'description': 'Call Service'
 }
 
-
 @router.post('/twiml/start', tags=['Twilio'])
 async def start(request: Request) -> Response:
     twilio_response = VoiceResponse()
@@ -29,7 +28,6 @@ async def start(request: Request) -> Response:
     call_sid = body.get('CallSid')
 
     if call_sid:
-        # response_queues[call_sid]에 항상 asyncio.Queue()를 할당
         if call_sid not in request.app.state.response_queues:
             request.app.state.response_queues[call_sid] = asyncio.Queue()  # 항상 큐로 초기화
 
@@ -45,7 +43,6 @@ async def start(request: Request) -> Response:
         twilio_response.say('Something went wrong! Please try again later.')
 
     return Response(content=str(twilio_response), media_type="text/xml")
-
 
 @router.websocket("/stream")
 async def audio_stream_handler(websocket: WebSocket):
@@ -70,7 +67,6 @@ async def audio_stream_handler(websocket: WebSocket):
 
     finally:
         await rtzr_ws.close()
-
 
 @router.post("/twilio/twiml/continue/{call_sid}", name="twiml_continue")
 async def twiml_continue(request: Request, call_sid: str) -> Response:
@@ -103,7 +99,8 @@ async def twiml_continue(request: Request, call_sid: str) -> Response:
             assistant_response = next_transcript.strip()
 
         # Create a streaming URL endpoint for this transcript
-        stream_url = f"{request.url.scheme}://{request.url.netloc}/twilio/elevenlabs/stream/{call_sid}"
+        voice_id = 'pMsXgVXv3BLzUgSXRplE'
+        stream_url = f"{request.url.scheme}://{request.url.netloc}/twilio/elevenlabs/stream/{call_sid}/{voice_id}"
         request.app.state.convos[call_sid] = assistant_response
         twilio_response.play(stream_url)
 
@@ -126,12 +123,11 @@ async def continue_call(request: Request, twilio_response: VoiceResponse) -> Res
     return Response(content=str(twilio_response), media_type="text/xml")
 
 
-@router.get('/elevenlabs/stream/{call_sid}')
-async def elevenlabs_stream_handler(call_sid: str, request: Request):
+@router.get('/elevenlabs/stream/{call_sid}/{voice_id}')
+async def elevenlabs_stream_handler(call_sid: str, voice_id: str, request: Request):
     transcript = request.app.state.convos.get(call_sid, '')
 
     elevenlabs_api_key = os.getenv('ELEVENLABS_API_KEY')
-    voice_id = "pMsXgVXv3BLzUgSXRplE"  # Replace with your desired voice ID
 
     headers = {
         "xi-api-key": elevenlabs_api_key,
